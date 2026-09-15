@@ -1,24 +1,28 @@
 # NavVis Ivion Pan Control
 
-A Chrome/Edge (Manifest V3) browser extension that injects a small floating D-pad
-panel onto NavVis Ivion viewer pages (`*.iv.navvis.com`). The arrows nudge the
-`x` and `y` query-string coordinates by a chosen step size, and the page view
-updates to match.
+A Chrome/Edge (Manifest V3) browser extension that injects a small floating
+control panel onto NavVis Ivion viewer pages (`*.iv.navvis.com`). A D-pad nudges
+the `x`/`y` (pan) coordinates and a pair of height buttons nudges the `z` (camera
+height) coordinate by a chosen step size, and the page view updates to match.
 
 ## Features
 
 - **D-pad overlay** injected directly into the page — draggable via its header
   bar so it never blocks the 3D view. Position persists across reloads.
+- **Height (z) buttons** ▲ / ▼ to raise/lower the camera, using the same step
+  size as the pan D-pad.
 - **Step size** chips: `1` / `10` / `100`, single-choice, defaults to `1`.
-  Last choice is remembered (`chrome.storage.local`).
+  Last choice is remembered (`chrome.storage.local`) and applies to both pan
+  and height.
 - **Direction convention** (math, not screen): ▶ `x += step`, ◀ `x -= step`,
-  ▲ `y += step`, ▼ `y -= step`.
-- **Only `x` and `y` are touched.** `site`, `pc`, `vlon`, `vlat`, `fov`, `z`,
+  ▲ `y += step`, ▼ `y -= step`; Height ▲ `z += step`, ▼ `z -= step`.
+- **Only `x`, `y`, and `z` are touched.** `site`, `pc`, `vlon`, `vlat`, `fov`,
   and any other params are preserved unchanged in the rebuilt URL. Decimal
-  precision of `x`/`y` is preserved (e.g. `225.806` steps to `226.806`).
-- **Live readout** of the current `x`/`y` at the bottom of the panel.
+  precision is preserved (e.g. `225.806` steps to `226.806`, `1.798` to `2.798`).
+- **Live readout** of the current `x`/`y`/`z` at the bottom of the panel.
 - **Graceful no-op**: if `x`/`y` are missing from the URL, the panel shows a
-  warning and treats them as `0` instead of crashing.
+  warning and treats them as `0` instead of crashing (`z` likewise defaults
+  to `0` when absent).
 
 ## Install (Chrome or Edge)
 

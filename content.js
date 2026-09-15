@@ -1,6 +1,7 @@
 // NavVis Ivion Pan Control — content script
-// Injects a draggable D-pad overlay that nudges the x/y query params.
-// Only x and y are ever modified; every other param is preserved as-is.
+// Injects a draggable D-pad overlay that nudges the x/y (pan) and z (camera
+// height) query params. Only x, y, and z are ever modified; every other param
+// is preserved as-is.
 
 (() => {
   'use strict';
@@ -29,14 +30,16 @@
   // URL handling
   // ---------------------------------------------------------------------------
 
-  // Read x/y fresh from the current URL every time, so manual pans inside the
+  // Read x/y/z fresh from the current URL every time, so manual pans inside the
   // viewer (which may rewrite the URL) never leave us with stale values.
   function readCoords() {
     const params = new URLSearchParams(location.search);
     const rawX = params.get('x');
     const rawY = params.get('y');
+    const rawZ = params.get('z');
     const x = rawX === null ? 0 : parseFloat(rawX);
     const y = rawY === null ? 0 : parseFloat(rawY);
+    const z = rawZ === null ? 0 : parseFloat(rawZ);
     const missing = rawX === null || rawY === null;
     if (missing) {
       console.warn('[NavVis Pan Control] x/y not found in URL; defaulting missing values to 0.');
@@ -44,8 +47,10 @@
     return {
       x: Number.isFinite(x) ? x : 0,
       y: Number.isFinite(y) ? y : 0,
+      z: Number.isFinite(z) ? z : 0,
       rawX,
       rawY,
+      rawZ,
       missing,
     };
   }
@@ -63,10 +68,13 @@
     return String(value);
   }
 
-  function buildUrl(newX, newY, coords) {
+  // Rebuild the query string, changing only the axes named in `updates` and
+  // preserving every other param (site, pc, vlon, vlat, fov, ...) untouched.
+  function buildUrl(updates, coords) {
     const params = new URLSearchParams(location.search);
-    params.set('x', formatLike(newX, coords.rawX));
-    params.set('y', formatLike(newY, coords.rawY));
+    if ('x' in updates) params.set('x', formatLike(updates.x, coords.rawX));
+    if ('y' in updates) params.set('y', formatLike(updates.y, coords.rawY));
+    if ('z' in updates) params.set('z', formatLike(updates.z, coords.rawZ));
     return location.pathname + '?' + params.toString() + location.hash;
   }
 
@@ -86,9 +94,18 @@
 
   function nudge(dx, dy) {
     const coords = readCoords();
-    const newX = coords.x + dx * state.step;
-    const newY = coords.y + dy * state.step;
-    applyUrl(buildUrl(newX, newY, coords));
+    applyUrl(
+      buildUrl(
+        { x: coords.x + dx * state.step, y: coords.y + dy * state.step },
+        coords
+      )
+    );
+    updateReadout();
+  }
+
+  function nudgeHeight(dz) {
+    const coords = readCoords();
+    applyUrl(buildUrl({ z: coords.z + dz * state.step }, coords));
     updateReadout();
   }
 
@@ -160,6 +177,31 @@
         font-size: 10px;
         opacity: 0.6;
       }
+      .height {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin-top: 8px;
+      }
+      .height .label {
+        flex: 1;
+        font-size: 10px;
+        letter-spacing: 0.3px;
+        opacity: 0.7;
+      }
+      .height button {
+        appearance: none;
+        width: 34px;
+        height: 28px;
+        border: 1px solid rgba(255, 255, 255, 0.16);
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.06);
+        color: #e8eaed;
+        font-size: 15px;
+        cursor: pointer;
+      }
+      .height button:hover { background: rgba(255, 255, 255, 0.16); }
+      .height button:active { background: rgba(255, 255, 255, 0.28); }
       .steps {
         display: flex;
         gap: 4px;
@@ -215,6 +257,11 @@
           <button class="right" data-dx="1"  data-dy="0"  title="x + step">▶</button>
           <button class="down"  data-dx="0"  data-dy="-1" title="y − step">▼</button>
         </div>
+        <div class="height" id="height">
+          <span class="label">HEIGHT (z)</span>
+          <button class="hdown" data-dz="-1" title="z − step (down)">▼</button>
+          <button class="hup"   data-dz="1"  title="z + step (up)">▲</button>
+        </div>
         <div class="steps" id="steps">
           <label><input type="radio" name="step" value="1"><span>1</span></label>
           <label><input type="radio" name="step" value="10"><span>10</span></label>
@@ -232,19 +279,27 @@
 
   function updateReadout() {
     const coords = readCoords();
+    const zStr = coords.rawZ === null ? '—' : coords.rawZ;
     if (coords.missing) {
       readoutEl.textContent = 'x/y not in URL (using 0)';
       readoutEl.classList.add('warn');
     } else {
-      readoutEl.textContent = `x: ${coords.rawX}  y: ${coords.rawY}`;
+      readoutEl.textContent = `x: ${coords.rawX}  y: ${coords.rawY}  z: ${zStr}`;
       readoutEl.classList.remove('warn');
     }
   }
 
-  // Arrow buttons
+  // Arrow buttons (x/y pan)
   shadow.querySelectorAll('.dpad button').forEach((btn) => {
     btn.addEventListener('click', () => {
       nudge(parseInt(btn.dataset.dx, 10), parseInt(btn.dataset.dy, 10));
+    });
+  });
+
+  // Height buttons (z)
+  shadow.querySelectorAll('.height button').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      nudgeHeight(parseInt(btn.dataset.dz, 10));
     });
   });
 
